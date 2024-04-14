@@ -1,0 +1,14 @@
+model:
+  name: Diffusion
+  epochs: 100
+  beta1: 0.0004
+  beta2: 0.02
+  learning_rate: 0.00001
+  batch_size: 128
+  timesteps: 1000
+  num_workers: 4
+
+dataset:
+  name: CIFAR-10
+
+  

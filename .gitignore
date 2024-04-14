@@ -130,3 +130,12 @@ dmypy.json
 
 .idea
 .DS_Store
+.pytest_cache
+.coverage
+
+week02_management_and_testing/homework/wandb/
+week02_management_and_testing/homework/cifar10
+week02_management_and_testing/homework/data
+week02_management_and_testing/homework/outputs
+week02_management_and_testing/homework/samples
+
