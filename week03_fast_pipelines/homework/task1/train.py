@@ -13,18 +13,32 @@ def train_epoch(
     criterion: torch.nn.modules.loss._Loss,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
+    dynamic_scaling: bool = False
 ) -> None:
     model.train()
+
+    S = 2**16 # init value was taken from official torch.amp.GradScaler class
 
     pbar = tqdm(enumerate(train_loader), total=len(train_loader))
     for i, (images, labels) in pbar:
         images = images.to(device)
         labels = labels.to(device)
 
-        with torch.cuda.amp.autocast():
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=True):
             outputs = model(images)
+            assert outputs.dtype == torch.float16
             loss = criterion(outputs, labels)
-        # TODO: your code for loss scaling here
+        
+        loss *= S
+        loss.backward()
+
+
+        optimizer.step()        
+    
+        if dynamic_scaling:
+            S /= 2
+
+        optimizer.zero_grad()
 
         accuracy = ((outputs > 0.5) == labels).float().mean()
 
@@ -42,3 +56,7 @@ def train():
     num_epochs = 5
     for epoch in range(0, num_epochs):
         train_epoch(train_loader, model, criterion, optimizer, device=device)
+
+
+if __name__ == '__main__':
+    train()
