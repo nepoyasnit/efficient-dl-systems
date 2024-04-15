@@ -20,25 +20,26 @@ def yield_tokens(data_iter):
 
 
 class BrainDataset(Dataset):
-    dataset: tuple
-    def __init__(self, max_length: int = MAX_LENGTH):
-        data = pardata.load_dataset('wikitext103')['train'].split('.')
-        labels = torch.randint(2, (len(data),))
-        self.dataset = list(zip(data, labels))
-
-        tokenizer = torchtext.data.utils.get_tokenizer("basic_english")
-        vocab = build_vocab_from_iterator(yield_tokens(iter(self.dataset)), specials=["<unk>"])
-        vocab.set_default_index(vocab["<unk>"])
-
-        text_pipeline = lambda x: vocab(tokenizer(x))
-
-        torch.tensor(text_pipeline(x), dtype=torch.int64)
-        print(len(self.data))
+    def __init__(self, data_path: str, tokenizer, max_length: int = MAX_LENGTH):
+        self.data_path = data_path
+        self.max_length = max_length
+        self.lines = self._read_lines(data_path, tokenizer, max_length)
 
     def __getitem__(self, idx: int):
-        return self.data[idx]
+        return self.lines[idx]
+    
+    def __len__(self):
+        return len(self.lines)
+    
+    @staticmethod
+    def _read_lines(data_path, tokenizer, max_length):
+        with open(data_path, encoding='utf-8') as f:
+            lines = list(filter(len, (tokenizer(line.rstrip())[:max_length] for line in f.readlines())))
 
-print(BrainDataset()[4])
+        return lines
+
+
+print(BrainDataset(data_path='data/wikitext-103/wiki.train.tokens', tokenizer=get_tokenizer('basic_english'))[3])
 
 class BigBrainDataset(Dataset):
     dataset: tuple
