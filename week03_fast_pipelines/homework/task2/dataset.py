@@ -12,6 +12,9 @@ from torchtext.vocab import build_vocab_from_iterator
 
 
 MAX_LENGTH = 640
+PAD_TOKEN = '<pad>'
+UNK_TOKEN = '<unk>'
+
 
 def yield_tokens(data_iter):
     tokenizer = torchtext.data.utils.get_tokenizer("basic_english")
@@ -41,33 +44,16 @@ class BrainDataset(Dataset):
 
 print(BrainDataset(data_path='data/wikitext-103/wiki.train.tokens', tokenizer=get_tokenizer('basic_english'))[3])
 
-class BigBrainDataset(Dataset):
-    dataset: tuple
-
-    def __init__(self, data_path: str, max_length: int = MAX_LENGTH):
-        data = pardata.load_dataset('wikitext103')['train'].split('.')
-        labels = torch.randint(2, (len(data),))
-        self.dataset = list(zip(data, labels))
-        
-        vocab = build_vocab_from_iterator(yield_tokens(iter(self.dataset)), specials=["<unk>"])
-        vocab.set_default_index(vocab["<unk>"])
-        
+class BigBrainDataset(BrainDataset):
+    pass
 
 
-    def __getitem__(self, idx: int):
-        return self.dataset[idx]
-
-
-class UltraDuperBigBrainDataset(Dataset):
-    def __init__(self, data_path: str, max_length: int = MAX_LENGTH, n_bins: int = 1):
-        pass
-
-    def __getitem__(self, idx: int):
-        pass
+class UltraDuperBigBrainDataset(BigBrainDataset):
+    pass
 
 
 def collate_fn(
-    batch: list[tuple[str, torch.Tensor]], vocab,  max_length: Optional[int] = MAX_LENGTH
+    batch: list[tuple[str, torch.Tensor]], token_to_id: dict[str, int],  max_length: Optional[int] = None
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Pad each sequence of the incoming sequences list
@@ -75,19 +61,23 @@ def collate_fn(
     :param max_length: maximum sequence length to pad to (for "Brain" approach only)
     :return: tuple of padded sequences and corresponding training targets
     """
-    text_list, label_list = [], []
-    tokenizer = get_tokenizer("basic_english")
-    text_pipeline = lambda x: vocab(tokenizer(x))
+    result = []
+    batch_max_len = max(map(len, batch))
+    for line in batch:
+        pad_idx = token_to_id[PAD_TOKEN]
+        if max_length: 
+            padding = [pad_idx] * (max_length - len(line))
+        else:
+            pading = [pad_idx] * (batch_max_len - len(line))
 
-    for _text, _label in batch:
-        label_list.append(_label)
-        processed_text = torch.tensor(text_pipeline(_text), dtype=torch.int64)
-        text_list.append(processed_text)
+        unkn_idx = token_to_id[UNK_TOKEN]
+        ids = [token_to_id.get(token, unkn_idx) for token in line] + padding
+        result.append(ids)
 
-    text_list = nn.utils.rnn.pad_sequence(text_list, batch_first=True, padding_value=0)
-    label_list = torch.tensor(label_list, dtype=torch.int64)
+    batch = torch.tensor(result)
+    target = batch[:, 1:]
 
-    return text_list, label_list
+    return batch, target
 
 
 
