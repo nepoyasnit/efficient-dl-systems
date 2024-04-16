@@ -6,6 +6,7 @@ import gdown
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
+from torch.profiler import record_function
 
 from utils import Clothes, get_labels_dict
 
@@ -24,11 +25,14 @@ class ClothesDataset(Dataset):
 
     def __getitem__(self, idx):
         img_name = self.img_list[idx]
-        img = Image.open(f"{self.folder_path}/{img_name}.jpg").convert("RGB")
-        img_transformed = self.transform(img)
-        label = self.label2ix[self.frame.loc[img_name]["label"]]
+        with record_function('Dataset_getitem'):
+            with record_function('dataset_read_image'):
+                img = Image.open(f"{self.folder_path}/{img_name}.jpg").convert("RGB")
+            with record_function('dataset_transforms'):
+                img_transformed = self.transform(img)
+            label = self.label2ix[self.frame.loc[img_name]["label"]]
 
-        return img_transformed, label
+            return img_transformed, label
 
 
 def download_extract_dataset():
