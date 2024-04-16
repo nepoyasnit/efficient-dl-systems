@@ -1,6 +1,8 @@
 from typing import Optional
+from collections import defaultdict
 import pardata
 import torchtext
+import random
 
 import torch
 import torch.nn as nn
@@ -82,12 +84,46 @@ def collate_fn(
 
 
 class UltraDuperBigBrainBatchSampler(Sampler):
+    batch_size: int
+    bin_size: int
+    _dataset_size: int
+    _indices: list
 
-    def __init__(self, batch_size: int, max_length: Optional[int] = MAX_LENGTH):
-        pass
+    def __init__(self, batch_size: int, dataset: UltraDuperBigBrainDataset, bin_size: int):
+        self.batch_size = batch_size
+        self.bin_size = bin_size
+        self._dataset_size = len(dataset)
+        self._indices = list(range(self._dataset_size))
 
-    def __len__(self):
-        pass
+        self._idx_to_sample_len = dict(enumerate(map(len, dataset.lines)))
+        self._len_to_indices = self._get_len_to_indices(self._idx_to_sample_len)
+        random.shuffle(self._indices)
 
     def __iter__(self):
-        pass
+        for sample_idx in self._indices:
+            sample_len = self._idx_to_sample_len[sample_idx]
+            yield self._collect_batch_indices(sample_idx, sample_len)
+
+    def _collect_batch_indices(self, sample_idx, sample_len):
+        batch_indices = [sample_idx]
+        possible_lens = list(range(sample_len - self.bin_size // 2, sample_len + self.bin_size // 2 + 1))
+        random.shuffle(possible_lens)
+
+        for len in possible_lens:
+            texts = self._len_to_indices.get(len, [])
+            batch_indices += random.sample(texts, k=min(self.batch_size, len(texts)))
+
+            if len(batch_indices) >= self.batch_size:
+                return batch_indices[:self.batch_size]
+            
+        return batch_indices
+
+    @staticmethod
+    def _get_len_to_indices(idx_to_sample_len):
+        len_to_indices = defaultdict(list)
+        for sample_idx, sample_len in idx_to_sample_len.items():
+            len_to_indices[sample_len].append(sample_idx)
+
+    def __len__(self):
+        return self._dataset_size // self.batch_size
+    
