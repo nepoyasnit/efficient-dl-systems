@@ -70,7 +70,7 @@ def collate_fn(
         if max_length: 
             padding = [pad_idx] * (max_length - len(line))
         else:
-            pading = [pad_idx] * (batch_max_len - len(line))
+            padding = [pad_idx] * (batch_max_len - len(line))
 
         unkn_idx = token_to_id[UNK_TOKEN]
         ids = [token_to_id.get(token, unkn_idx) for token in line] + padding
@@ -109,8 +109,8 @@ class UltraDuperBigBrainBatchSampler(Sampler):
         possible_lens = list(range(sample_len - self.bin_size // 2, sample_len + self.bin_size // 2 + 1))
         random.shuffle(possible_lens)
 
-        for len in possible_lens:
-            texts = self._len_to_indices.get(len, [])
+        for length in possible_lens:
+            texts = self._len_to_indices.get(length, [])
             batch_indices += random.sample(texts, k=min(self.batch_size, len(texts)))
 
             if len(batch_indices) >= self.batch_size:
@@ -123,6 +123,8 @@ class UltraDuperBigBrainBatchSampler(Sampler):
         len_to_indices = defaultdict(list)
         for sample_idx, sample_len in idx_to_sample_len.items():
             len_to_indices[sample_len].append(sample_idx)
+
+        return dict(len_to_indices)
 
     def __len__(self):
         return self._dataset_size // self.batch_size
